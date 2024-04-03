@@ -17,7 +17,7 @@ class Scratch3YourExtension {
             id: 'yourScratchExtension',
 
             // name that will be displayed in the Scratch UI
-            name: 'Demo',
+            name: 'MQTT Pre Project',
 
             // colours to use for your extension blocks
             color1: '#000099',
