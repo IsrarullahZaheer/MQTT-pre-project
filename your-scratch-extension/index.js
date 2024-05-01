@@ -1,100 +1,156 @@
-const BlockType = require('../../extension-support/block-type');
-const ArgumentType = require('../../extension-support/argument-type');
-const TargetType = require('../../extension-support/target-type');
+const BlockType = require("../../extension-support/block-type")
+const ArgumentType = require("../../extension-support/argument-type")
+const TargetType = require("../../extension-support/target-type")
 
 class Scratch3YourExtension {
+  constructor(runtime) {
+    this.runtime = runtime
+    this.client = null
+    this.latestMessages = {}
+  }
 
-    constructor (runtime) {
-        // put any setup for your extension here
+  /**
+   * Returns the metadata about your extension.
+   */
+  getInfo() {
+    return {
+      // unique ID for your extension
+      id: "mqtt",
+
+      // name that will be displayed in the Scratch UI
+      name: "MQTT Extension",
+
+      // colours to use for your extension blocks
+      color1: "#000099",
+      color2: "#660066",
+
+      // icons to display
+      blockIconURI:
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAkAAAAFCAAAAACyOJm3AAAAFklEQVQYV2P4DwMMEMgAI/+DEUIMBgAEWB7i7uidhAAAAABJRU5ErkJggg==",
+      menuIconURI:
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAkAAAAFCAAAAACyOJm3AAAAFklEQVQYV2P4DwMMEMgAI/+DEUIMBgAEWB7i7uidhAAAAABJRU5ErkJggg==",
+
+      // your Scratch blocks
+      blocks: [
+        {
+          opcode: "connectToBroker",
+          blockType: BlockType.COMMAND,
+          text: "Connect to MQTT Broker",
+        },
+        {
+          opcode: "subscribeToTopic",
+          blockType: BlockType.COMMAND,
+          text: "Subscribe to topic [topic]",
+          arguments: {
+            topic: {
+              type: ArgumentType.STRING,
+              defaultValue: "test/topic",
+            },
+          },
+        },
+        {
+          opcode: "sendMessage",
+          blockType: BlockType.COMMAND,
+          text: "Send message [message] to topic [topic]",
+          arguments: {
+            topic: {
+              type: ArgumentType.STRING,
+              defaultValue: "test/topic",
+            },
+            message: {
+              type: ArgumentType.STRING,
+              defaultValue: "Hello, MQTT!",
+            },
+          },
+        },
+        {
+          opcode: "getLatestMessage",
+          blockType: BlockType.REPORTER,
+          text: "Get latest message from topic [topic]",
+          arguments: {
+            topic: {
+              type: ArgumentType.STRING,
+              defaultValue: "test/topic",
+            },
+          },
+        },
+      ],
     }
+  }
 
-    /**
-     * Returns the metadata about your extension.
-     */
-    getInfo () {
-        return {
-            // unique ID for your extension
-            id: 'yourScratchExtension',
+  connectToBroker() {
+    return new Promise((resolve, reject) => {
+      const url =
+        "https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.3.6/mqtt.min.js"
+      const script = document.createElement("script")
+      script.src = url
+      script.onload = () => {
+        // Check if the library properly exposes functionality
+        if (typeof mqtt === "undefined" || typeof mqtt.connect !== "function") {
+          reject(new Error("MQTT library not properly loaded from CDN"))
+          return
+        }
 
-            // name that will be displayed in the Scratch UI
-            name: 'MQTT Pre Project',
+        // Initialize the MQTT client
+        this.client = mqtt.connect("wss://test.mosquitto.org:8081/mqtts")
+        // Event handlers for MQTT client
+        this.client.on("connect", () => {
+          console.log("Connected to MQTT broker")
+          resolve()
+        })
+        this.client.on("error", (error) => {
+          console.error("MQTT connection error:", error)
+          reject(error)
+        })
+        this.client.on("message", (topic, message) => {
+          // Store the latest message for the topic
+          this.latestMessages[topic] = message.toString()
+        })
+      }
+      script.onerror = (error) => {
+        console.error("Something went wrong while loading MQTT library:", error)
+        reject(error)
+      }
 
-            // colours to use for your extension blocks
-            color1: '#000099',
-            color2: '#660066',
+      document.head.appendChild(script)
+    })
+  }
 
-            // icons to display
-            blockIconURI: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAkAAAAFCAAAAACyOJm3AAAAFklEQVQYV2P4DwMMEMgAI/+DEUIMBgAEWB7i7uidhAAAAABJRU5ErkJggg==',
-            menuIconURI: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAkAAAAFCAAAAACyOJm3AAAAFklEQVQYV2P4DwMMEMgAI/+DEUIMBgAEWB7i7uidhAAAAABJRU5ErkJggg==',
-
-            // your Scratch blocks
-            blocks: [
-                {
-                    // name of the function where your block code lives
-                    opcode: 'myFirstBlock',
-
-                    // type of block - choose from:
-                    //   BlockType.REPORTER - returns a value, like "direction"
-                    //   BlockType.BOOLEAN - same as REPORTER but returns a true/false value
-                    //   BlockType.COMMAND - a normal command block, like "move {} steps"
-                    //   BlockType.HAT - starts a stack if its value changes from false to true ("edge triggered")
-                    blockType: BlockType.REPORTER,
-
-                    // label to display on the block
-                    text: 'MQTT Pre-Project [MY_STRING]',
-
-                    // true if this block should end a stack
-                    terminal: false,
-
-                    // where this block should be available for code - choose from:
-                    //   TargetType.SPRITE - for code in sprites
-                    //   TargetType.STAGE  - for code on the stage / backdrop
-                    // remove one of these if this block doesn't apply to both
-                    filter: [ TargetType.SPRITE, TargetType.STAGE ],
-
-                    // arguments used in the block
-                    arguments: {
-                        // MY_NUMBER: {
-                        //     // default value before the user sets something
-                        //     defaultValue: 123,
-
-                        //     // type/shape of the parameter - choose from:
-                        //     //     ArgumentType.ANGLE - numeric value with an angle picker
-                        //     //     ArgumentType.BOOLEAN - true/false value
-                        //     //     ArgumentType.COLOR - numeric value with a colour picker
-                        //     //     ArgumentType.NUMBER - numeric value
-                        //     //     ArgumentType.STRING - text value
-                        //     //     ArgumentType.NOTE - midi music value with a piano picker
-                        //     type: ArgumentType.NUMBER
-                        // },
-                        MY_STRING: {
-                            // default value before the user sets something
-                            defaultValue: 'Hello World',
-
-                            // type/shape of the parameter - choose from:
-                            //     ArgumentType.ANGLE - numeric value with an angle picker
-                            //     ArgumentType.BOOLEAN - true/false value
-                            //     ArgumentType.COLOR - numeric value with a colour picker
-                            //     ArgumentType.NUMBER - numeric value
-                            //     ArgumentType.STRING - text value
-                            //     ArgumentType.NOTE - midi music value with a piano picker
-                            type: ArgumentType.STRING
-                        }
-                    }
-                }
-            ]
-        };
+  subscribeToTopic({ topic }) {
+    if (!this.client) {
+      console.error(
+        "MQTT client is not initialized. Please connect to MQTT broker first."
+      )
+      return
     }
+    this.client.subscribe(topic, (err) => {
+      if (err) {
+        console.error("Error subscribing to topic:", err)
+      } else {
+        console.log(`Subscribed to topic: ${topic}`)
+      }
+    })
+  }
 
-
-    /**
-     * implementation of the block with the opcode that matches this name
-     *  this will be called when the block is used
-     */
-    myFirstBlock ({ MY_STRING }) {
-        // example implementation to return a string
-        return MY_STRING;
+  sendMessage({ topic, message }) {
+    if (!this.client) {
+      console.error(
+        "MQTT client is not initialized. Please connect to MQTT broker first."
+      )
+      return
     }
+    this.client.publish(topic, message, (err) => {
+      if (err) {
+        console.error("Error publishing message:", err)
+      } else {
+        console.log(`Message published to topic: ${topic}`)
+      }
+    })
+  }
+
+  getLatestMessage({ topic }) {
+    return this.latestMessages[topic] || ""
+  }
 }
 
-module.exports = Scratch3YourExtension;
+module.exports = Scratch3YourExtension
